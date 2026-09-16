@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>slowed.lol — Flipper Zero firmware installer</title>
+        <meta
+            name="description"
+            content="Install slowed.lol custom firmware on your Flipper Zero straight from the browser. No downloads, no DFU, no extra tools."
+        />
+        <link rel="stylesheet" href="assets/styles.css" />
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐬</text></svg>"
+        />
+    </head>
+    <body>
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-mark">🐬</span>
+                <span id="firmware-name">slowed.lol</span>
+            </div>
+            <span id="status-badge" class="badge" data-kind="idle">Ready</span>
+        </header>
+
+        <main>
+            <section class="hero">
+                <h1>Install <span class="accent">slowed.lol</span> on your Flipper Zero</h1>
+                <p id="tagline">Custom firmware for Flipper Zero</p>
+                <p class="hero-note">
+                    Everything happens in your browser: the package is downloaded, unpacked and
+                    pushed to the SD card over USB. No DFU mode, no extra tools, your data stays
+                    on the card.
+                </p>
+                <div id="support-warning" class="warning" hidden>
+                    ⚠️ This browser has no WebSerial support, so the one-click installer is
+                    unavailable. Use desktop Chrome, Edge or Opera — or install manually with
+                    qFlipper (see below).
+                </div>
+            </section>
+
+            <section class="card wizard">
+                <ol class="steps">
+                    <li class="step">
+                        <h2><span class="step-number">1</span> Plug in your Flipper</h2>
+                        <p class="muted">
+                            Use a data-capable USB-C cable and keep an SD card inserted. The
+                            installer talks to the Flipper CLI, so any firmware (including the
+                            stock one) works as a starting point.
+                        </p>
+                        <div class="row">
+                            <button id="connect-btn" class="btn primary" type="button">
+                                Connect Flipper
+                            </button>
+                            <button id="disconnect-btn" class="btn" type="button">
+                                Disconnect
+                            </button>
+                        </div>
+                    </li>
+
+                    <li class="step">
+                        <h2><span class="step-number">2</span> Check the device</h2>
+                        <p id="device-hint" class="muted">Nothing connected yet.</p>
+                        <div id="device-fields" class="fields" hidden></div>
+                    </li>
+
+                    <li class="step">
+                        <h2><span class="step-number">3</span> Choose a build</h2>
+                        <label class="label" for="version-select">Release</label>
+                        <select id="version-select" class="input"></select>
+                        <p id="version-hint" class="muted"></p>
+
+                        <label class="label" for="file-input">…or use a local .tgz package</label>
+                        <input id="file-input" class="input" type="file" accept=".tgz,.tar.gz" />
+                        <p id="file-hint" class="muted">
+                            Handy for offline builds or when the download is blocked. Grab
+                            <code>flipper-z-f7-update-*.tgz</code> from the releases page.
+                        </p>
+                    </li>
+
+                    <li class="step">
+                        <h2><span class="step-number">4</span> Install</h2>
+                        <p class="muted">
+                            The package is uploaded to <code>/ext/update</code> and the device
+                            flashes itself after a reboot. Don't unplug anything while it works.
+                        </p>
+                        <button id="install-btn" class="btn primary" type="button" disabled>
+                            Install firmware
+                        </button>
+                        <div class="progress">
+                            <div id="progress-bar" class="progress-bar"></div>
+                        </div>
+                        <p id="progress-label" class="muted">Idle 0%</p>
+                    </li>
+                </ol>
+
+                <div class="log-wrap">
+                    <h3>Log</h3>
+                    <pre id="log" class="log" aria-live="polite"></pre>
+                </div>
+            </section>
+
+            <section class="card manual">
+                <h2>Manual installation</h2>
+                <p class="muted">
+                    Prefer to do it by hand, or the browser refuses to cooperate? Both official
+                    artifacts of the release <span id="manual-version">latest release</span> work
+                    with the standard tools.
+                </p>
+                <ul class="downloads">
+                    <li>
+                        <span class="dl-label">Update package (.tgz)</span>
+                        <a id="manual-tgz" href="#">not available</a>
+                    </li>
+                    <li>
+                        <span class="dl-label">Full DFU image (.dfu)</span>
+                        <a id="manual-dfu" href="#">not available</a>
+                    </li>
+                </ul>
+                <h3>With qFlipper</h3>
+                <ol class="muted">
+                    <li>Open qFlipper and connect your Flipper.</li>
+                    <li>Click <em>Install from file</em> and pick the downloaded <code>.tgz</code>.</li>
+                    <li>Wait for the reboot — the SD card contents are preserved.</li>
+                </ol>
+                <h3>With lab.flipper.net</h3>
+                <p class="muted">
+                    Open
+                    <a href="https://lab.flipper.net/" target="_blank" rel="noreferrer noopener"
+                        >lab.flipper.net</a
+                    >
+                    and pass the package URL:
+                    <code>?url=&lt;link to the .tgz&gt;</code>. That updater uses the same
+                    card-based mechanism as this page.
+                </p>
+                <h3>By hand, on the SD card</h3>
+                <ol class="muted">
+                    <li>
+                        Extract the <code>.tgz</code> onto the SD card, into <code>/ext/update/</code>.
+                    </li>
+                    <li>
+                        Insert the card, open the CLI and run
+                        <code>update install /ext/update/&lt;bundle&gt;/update.fuf</code>.
+                    </li>
+                </ol>
+            </section>
+
+            <section class="card faq">
+                <h2>Notes &amp; troubleshooting</h2>
+                <dl>
+                    <dt>The device is not detected</dt>
+                    <dd>
+                        Check the cable (charge-only cables do not work), try another USB port, and
+                        quit qFlipper/the mobile app so the CLI is free.
+                    </dd>
+                    <dt>"This Flipper is in DFU/recovery mode"</dt>
+                    <dd>
+                        Unplug it, wait a second and plug it back in without touching any button.
+                        Then connect again.
+                    </dd>
+                    <dt>The SD card is missing</dt>
+                    <dd>
+                        The installer needs a FAT32 card with at least ~10 MiB free. The device can
+                        format one itself: <em>Settings → Storage → Format SD card</em>.
+                    </dd>
+                    <dt>Wrong hardware target</dt>
+                    <dd>
+                        Builds are published per target (<code>f7</code> and <code>f18</code>). The
+                        installer reads the target from your device and only offers matching
+                        packages.
+                    </dd>
+                    <dt>Where is the source?</dt>
+                    <dd>
+                        Firmware, release workflow and this installer live in
+                        <a id="source-github" href="#">the repository</a>.
+                    </dd>
+                </dl>
+            </section>
+
+            <footer class="footer">
+                <p>
+                    GPL-3.0 firmware based on the official Flipper Zero firmware. Flashing custom
+                    firmware is done at your own risk — read the release notes before installing.
+                </p>
+            </footer>
+        </main>
+        <script type="module" src="assets/app.js"></script>
+    </body>
+</html>
