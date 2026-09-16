@@ -76,11 +76,32 @@ function formatBytes(bytes) {
 
 function setBusy(busy) {
     state.busy = busy;
-    ui.connect.disabled = busy || !FlipperSerial.isSupported();
+    ui.connect.disabled = busy;
     ui.install.disabled = busy || !state.serial?.isOpen;
     ui.version.disabled = busy;
     ui.file.disabled = busy;
 }
+
+/** Human readable description of the current browser, for support hints. */
+function describeBrowser() {
+    const ua = navigator.userAgent;
+    if (/Edg\//.test(ua)) return { name: 'Microsoft Edge', serial: true };
+    if (/OPR\//.test(ua)) return { name: 'Opera', serial: true };
+    if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) return { name: 'Chrome', serial: true };
+    if (/Firefox\//.test(ua)) return { name: 'Firefox', serial: false };
+    if (/Safari\//.test(ua)) return { name: 'Safari', serial: false };
+    if (/Android|iPhone|iPad/.test(ua)) return { name: 'a mobile browser', serial: false };
+    return { name: 'this browser', serial: 'serial' in navigator };
+}
+
+const NO_SERIAL_MESSAGE = (browser) =>
+    `WebSerial is not available in ${browser.name}, so the one-click installer cannot run here.\n\n` +
+    `What to do:\n` +
+    `  1. Open this page in desktop Chrome, Edge or Opera (they are the only browsers with WebSerial).\n` +
+    `  2. Or install manually with qFlipper - scroll down to "Manual installation" for the .tgz/.dfu links.\n` +
+    (browser.serial === false
+        ? `\n(Firefox, Safari and mobile browsers do not support WebSerial at all.)`
+        : '');
 
 /** Render the connected device (or the hint when nothing is connected). */
 function renderDevice() {
@@ -232,6 +253,13 @@ async function loadReleases() {
 }
 async function connect() {
     if (state.busy) return;
+    const browser = describeBrowser();
+    if (!FlipperSerial.isSupported()) {
+        window.alert(NO_SERIAL_MESSAGE(browser));
+        ui.supportWarning.hidden = false;
+        log(`WebSerial is unavailable in ${browser.name} - use desktop Chrome, Edge or Opera.`);
+        return;
+    }
     setBusy(true);
     status('Connecting...');
     let serial = null;
@@ -388,8 +416,16 @@ function init() {
         log(`A direct package URL is set: ${state.directUrl}`);
     }
 
+    const browser = describeBrowser();
     if (!FlipperSerial.isSupported()) {
+        ui.supportWarning.textContent =
+            `⚠️ You are using ${browser.name}, which has no WebSerial support. ` +
+            'The one-click installer needs desktop Chrome, Edge or Opera — or install manually ' +
+            'with qFlipper (see "Manual installation" below).';
         ui.supportWarning.hidden = false;
+        log(`WebSerial is unavailable in ${browser.name}.`);
+    } else {
+        log(`Browser OK: ${browser.name} (WebSerial available).`);
     }
     if (!window.isSecureContext) {
         ui.supportWarning.hidden = false;
