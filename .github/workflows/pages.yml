@@ -34,6 +34,10 @@ jobs:
 
             - name: 'Configure Pages'
               uses: actions/configure-pages@v5
+              with:
+                  # Creates/repairs the Pages site automatically, so the first
+                  # deploy works even before Pages has been enabled by hand.
+                  enablement: true
 
             - name: 'Upload the site'
               uses: actions/upload-pages-artifact@v3
