@@ -4,8 +4,8 @@
  * and assets/archive.js (package extraction).
  */
 
-import { CONFIG, isConfigured, repoUrl } from './config.js';
-import { FlipperSerial, parseDeviceInfo, SerialError } from './serial.js';
+import { CONFIG, isConfigured, repoUrl } from './config.js?v=2';
+import { FlipperSerial, parseDeviceInfo, SerialError } from './serial.js?v=2';
 import {
     downloadWithProgress,
     fetchReleases,
@@ -14,7 +14,7 @@ import {
     installUpdatePackage,
     targetName,
     waitForInstallResult,
-} from './installer.js';
+} from './installer.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 

@@ -33,7 +33,9 @@ assert.ok(
 );
 assert.ok(html.includes('assets/styles.css'), 'index.html must load the stylesheet');
 
-const scriptAssets = [...html.matchAll(/(?:src|href)="(assets\/[^"]+)"/g)].map((match) => match[1]);
+const scriptAssets = [...html.matchAll(/(?:src|href)="(assets\/[^"]+)"/g)]
+    .map((match) => match[1].split('?')[0]) // ignore cache-busting ?v= parameters
+    .filter((value, index, all) => all.indexOf(value) === index);
 for (const asset of scriptAssets) {
     readFileSync(join(root, asset), 'utf8'); // throws if the file is missing
 }

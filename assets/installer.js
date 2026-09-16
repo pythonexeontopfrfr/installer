@@ -11,8 +11,8 @@
  * flashes itself. Nothing about this needs DFU mode or a special firmware.
  */
 
-import { extractUpdatePackage } from './archive.js';
-import { SerialError } from './serial.js';
+import { extractUpdatePackage } from './archive.js?v=2';
+import { SerialError } from './serial.js?v=2';
 
 const GITHUB_API = 'https://api.github.com';
 /** Where the installer keeps the package on the SD card. */
