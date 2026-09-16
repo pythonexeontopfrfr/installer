@@ -78,7 +78,23 @@ export class FlipperSerial {
                     'Opera (Firefox and Safari do not support it yet).'
             );
         }
-        return navigator.serial.requestPort({ filters: [{ vendorId: FLIPPER_USB.vendorId }] });
+        // The Web Serial API expects `usbVendorId`/`usbProductId` keys. 0x0483 is
+        // STMicroelectronics, which covers the Flipper's CDC port and DFU mode.
+        try {
+            return await navigator.serial.requestPort({
+                filters: [{ usbVendorId: FLIPPER_USB.vendorId }],
+            });
+        } catch (error) {
+            if (error?.name === 'TypeError') {
+                // Filter rejected (older/stricter browser build): fall back to
+                // the unfiltered picker so the user can still select the device.
+                return navigator.serial.requestPort();
+            }
+            if (error?.name === 'NotFoundError') {
+                throw new SerialError('No device was selected.');
+            }
+            throw error;
+        }
     }
 
     get isOpen() {
