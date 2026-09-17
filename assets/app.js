@@ -4,8 +4,8 @@
  * and assets/archive.js (package extraction).
  */
 
-import { CONFIG, isConfigured, repoUrl } from './config.js?v=2';
-import { FlipperSerial, parseDeviceInfo, SerialError } from './serial.js?v=2';
+import { CONFIG, isConfigured, repoUrl } from './config.js?v=3';
+import { FlipperSerial, parseDeviceInfo, SerialError } from './serial.js?v=3';
 import {
     downloadWithProgress,
     fetchReleases,
@@ -14,7 +14,7 @@ import {
     installUpdatePackage,
     targetName,
     waitForInstallResult,
-} from './installer.js?v=2';
+} from './installer.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 
@@ -141,7 +141,7 @@ function renderDevice() {
 
 /** Fill the version dropdown from the release list, filtered by hardware target. */
 function renderVersions() {
-    const target = targetName(state.device?.firmwareTarget);
+    const target = state.device?.firmwareTarget ?? state.device?.hardwareTarget;
     const usable = state.releases.filter((release) => {
         if (CONFIG.stableTag && release.tag !== CONFIG.stableTag) return false;
         return target ? Boolean(findUpdateAsset(release, target)) : true;
@@ -173,9 +173,21 @@ function renderVersions() {
         ui.version.append(optionByValue('', 'No release found - use a local file'));
     }
     ui.version.append(option);
-    if (usable.length > 0) {
-        ui.version.value = usable[0].tag;
+    if (state.localPackage) {
+        ui.version.value = '__local__';
+        state.selectedRelease = null;
+    } else if (state.directUrl) {
+        ui.version.value = '__direct__';
+        state.selectedRelease = null;
+    } else {
+        state.selectedRelease = usable.find((release) => release.tag === state.selectedRelease?.tag)
+            ?? usable[0] ?? null;
+        if (state.selectedRelease) ui.version.value = state.selectedRelease.tag;
     }
+    updateManualLinks();
+    updateVersionHint();
+}
+
 function updateVersionHint() {
     const release = state.selectedRelease;
     if (state.localPackage && ui.version.value === '__local__') {
@@ -194,14 +206,14 @@ function updateVersionHint() {
             : 'Set CONFIG.repo in assets/config.js, or pick a .tgz file manually below.';
         return;
     }
-    const asset = findUpdateAsset(release, targetName(state.device?.firmwareTarget) ?? 7);
+    const asset = findUpdateAsset(release, (state.device?.firmwareTarget ?? state.device?.hardwareTarget ?? 7));
     ui.versionHint.textContent = asset
         ? `${asset.name} (${formatBytes(asset.size)})`
         : 'No matching hardware-target build in this release.';
 }
 
 function updateManualLinks() {
-    const target = targetName(state.device?.firmwareTarget) ?? 7;
+    const target = (state.device?.firmwareTarget ?? state.device?.hardwareTarget ?? 7);
     const release = state.selectedRelease;
     const dfu = release ? findDfuAsset(release, target) : null;
     const tgz = release ? findUpdateAsset(release, target) : null;
@@ -247,10 +259,6 @@ async function loadReleases() {
     }
 }
 
-    state.selectedRelease = usable[0] ?? null;
-    updateManualLinks();
-    updateVersionHint();
-}
 async function connect() {
     if (state.busy) return;
     const browser = describeBrowser();
@@ -317,9 +325,12 @@ async function resolvePackageBytes() {
         });
     }
 
+    if (!targetName(state.device?.firmwareTarget ?? state.device?.hardwareTarget)) {
+        throw new Error('Hardware target is unknown. Reconnect before installing.');
+    }
     const release = state.selectedRelease;
     if (!release) throw new Error('No build selected.');
-    const asset = findUpdateAsset(release, targetName(state.device?.firmwareTarget) ?? 7);
+    const asset = findUpdateAsset(release, (state.device?.firmwareTarget ?? state.device?.hardwareTarget ?? 7));
     if (!asset) throw new Error('The selected release has no update package for this device.');
 
     log(`Downloading ${asset.name}...`);

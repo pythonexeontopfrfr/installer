@@ -101,6 +101,7 @@ class FakeFlipperCli {
     }
 
     command(line) {
+        this.push(`${line}\r\n\r\n`);
         const args = tokenize(line);
         const name = args[0];
 

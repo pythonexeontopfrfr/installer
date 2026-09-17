@@ -30,7 +30,7 @@ jobs:
               uses: actions/checkout@v4
 
             - name: 'Run the installer tests'
-              run: node tests/archive.test.mjs
+              run: npm test
 
             - name: 'Configure Pages'
               uses: actions/configure-pages@v5

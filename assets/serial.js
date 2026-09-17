@@ -338,14 +338,12 @@ export class FlipperSerial {
 
     /** Free space in bytes for a mount point (`/ext`). */
     async freeSpace(path = '/ext') {
-        await this.#write(`storage stat "${path}"\r`);
-        const line = await this.readUntil(CLI_EOL, 10000);
-        await this.readUntil(CLI_PROMPT, 10000);
-        // "Storage, 30528KiB total, 30528KiB free"
-        const match = /(\d+)\s*KiB free/i.exec(line);
+        const response = await this.command(`storage stat "${path}"`);
+        // Read the entire response: the first line may be a command echo.
+        const match = /(\d+)\s*KiB\s+free/i.exec(response);
         if (!match) {
             throw new SerialError(
-                'The SD card could not be read. Insert a FAT32 formatted card and try again.'
+                `Could not parse SD free space. Device response: ${response.trim() || '(empty)'}`
             );
         }
         return Number(match[1]) * 1024;
@@ -386,15 +384,20 @@ export class FlipperSerial {
         while (sent < total) {
             const chunk = bytes.subarray(sent, Math.min(sent + this.chunkSize, total));
             await this.#write(`storage write_chunk "${path}" ${chunk.length}\r`);
-            const answer = await this.readUntil(CLI_EOL, 15000);
-            if (!answer.includes('Ready')) {
-                const rest = await this.readUntil(CLI_PROMPT, 15000);
-                throw new SerialError(
-                    `Could not write "${path}": ${(answer + rest).trim().split('\r\n')[0]}`
-                );
+            let answer = '';
+            const started = Date.now();
+            while (true) {
+                const remaining = Math.max(1, 15000 - (Date.now() - started));
+                const reply = await this.readUntilAny([CLI_EOL, CLI_PROMPT], remaining);
+                answer += reply.text;
+                if (reply.matched === CLI_EOL && /^\s*Ready\s*$/.test(reply.text)) break;
+                if (reply.matched === CLI_PROMPT || Date.now() - started >= 15000) {
+                    throw new SerialError(`Could not write "${path}": ${answer.trim()}`);
+                }
             }
             await this.#writeBytes(chunk);
-            await this.readUntil(CLI_PROMPT, 0);
+            const result = await this.readUntil(CLI_PROMPT, 30000);
+            if (result.includes('Storage error:')) throw new SerialError(result.trim());
             sent += chunk.length;
             onProgress(sent, total);
         }
@@ -444,11 +447,12 @@ export class FlipperSerial {
 
 /** Parse the `device_info` CLI output into a plain object. */
 export function parseDeviceInfo(text) {
-    const value = (key) => {
-        const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const match = new RegExp(`^\\s*${escaped}:\\s*(.*)$`, 'm').exec(text);
-        return match ? match[1].trim() : null;
-    };
+    const fields = new Map();
+    for (const line of text.split(/\r?\n/)) {
+        const match = /^\s*([\w.]+)\s*:\s*(.*?)\s*$/.exec(line);
+        if (match) fields.set(match[1].replaceAll('_', '.'), match[2]);
+    }
+    const value = (key) => fields.get(key) || null;
     const numeric = (key) => {
         const raw = value(key);
         if (raw === null) return null;

@@ -11,8 +11,8 @@
  * flashes itself. Nothing about this needs DFU mode or a special firmware.
  */
 
-import { extractUpdatePackage } from './archive.js?v=2';
-import { SerialError } from './serial.js?v=2';
+import { extractUpdatePackage } from './archive.js?v=3';
+import { SerialError } from './serial.js?v=3';
 
 const GITHUB_API = 'https://api.github.com';
 /** Where the installer keeps the package on the SD card. */
@@ -77,7 +77,17 @@ export function findDfuAsset(release, target) {
 
 /** Download a URL with progress reporting (falls back to a plain fetch). */
 export async function downloadWithProgress(url, { onProgress = () => {}, signal } = {}) {
-    const response = await fetch(url, { signal });
+    let response;
+    try {
+        response = await fetch(url, { signal });
+    } catch (error) {
+        if (signal?.aborted || error.name === 'AbortError') throw error;
+        throw new Error(
+            'Package download was blocked or the network is unavailable. ' +
+                'GitHub release downloads may be blocked by browser CORS. Download the matching ' +
+                '.tgz from the release page and select it with the local file picker.'
+        );
+    }
     if (!response.ok) {
         throw new Error(`Download failed: HTTP ${response.status} for ${url}`);
     }
@@ -136,17 +146,18 @@ export async function installUpdatePackage({
             `(${formatBytes(bundle.totalSize)} unpacked).`
     );
 
-    if (device?.firmwareTarget) {
-        const expected = targetName(device.firmwareTarget);
-        const manifestText = new TextDecoder().decode(bundle.manifest.bytes);
-        const match = /^Target:\s*(\d+)/m.exec(manifestText);
-        const packageTarget = match ? Number(match[1]) : null;
-        if (packageTarget && expected && packageTarget !== device.firmwareTarget) {
-            throw new Error(
-                `This package is built for hardware target f${packageTarget}, but your device ` +
-                    `reports f${device.firmwareTarget}. Download the matching build.`
-            );
-        }
+    const deviceTarget = device?.firmwareTarget ?? device?.hardwareTarget;
+    if (!targetName(deviceTarget)) {
+        throw new Error('Hardware target is unknown. Reconnect and check device info before installing.');
+    }
+    const manifestText = new TextDecoder().decode(bundle.manifest.bytes);
+    const match = /^Target:\s*(\d+)\s*$/m.exec(manifestText);
+    const packageTarget = match ? Number(match[1]) : null;
+    if (packageTarget !== deviceTarget) {
+        throw new Error(
+            `Package hardware target f${packageTarget ?? 'unknown'} does not match device f${deviceTarget}. ` +
+                'Download the matching build.'
+        );
     }
 
     const folder = dirName || bundle.rootDir;
